@@ -1,0 +1,11 @@
+trip_id,route_id,service_id,direction_id,trip_headsign
+trip_101_nb,route_local,svc_weekday,0,San Francisco
+trip_103_nb,route_local,svc_weekday,0,San Francisco
+trip_507_nb,route_express,svc_weekday,0,San Francisco
+trip_115_nb,route_local,svc_weekday,0,San Francisco
+trip_171_nb,route_local,svc_weekday,0,San Francisco
+trip_102_sb,route_local,svc_weekday,1,San Jose Diridon
+trip_104_sb,route_local,svc_weekday,1,San Jose Diridon
+trip_502_sb,route_express,svc_weekday,1,San Jose Diridon
+trip_116_sb,route_local,svc_weekday,1,San Jose Diridon
+trip_601_wknd,route_local,svc_weekend,0,San Francisco

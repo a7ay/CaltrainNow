@@ -1,0 +1,4 @@
+route_id,route_short_name,route_long_name,route_type
+route_local,Local,Caltrain Local,2
+route_limited,Limited,Caltrain Limited,2
+route_express,Express,Caltrain Express,2

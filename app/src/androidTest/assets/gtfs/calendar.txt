@@ -1,0 +1,3 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+svc_weekday,1,1,1,1,1,0,0,20250101,20261231
+svc_weekend,0,0,0,0,0,1,1,20250101,20261231

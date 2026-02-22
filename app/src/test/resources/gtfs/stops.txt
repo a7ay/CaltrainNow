@@ -1,0 +1,11 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station
+stn_sf,San Francisco,37.7764,-122.3943,1,
+plt_sf_nb,San Francisco NB Platform,37.7764,-122.3942,0,stn_sf
+stn_millbrae,Millbrae,37.5999,-122.3866,1,
+plt_millbrae_nb,Millbrae NB Platform,37.5999,-122.3865,0,stn_millbrae
+stn_paloalto,Palo Alto,37.4437,-122.1648,1,
+plt_paloalto_nb,Palo Alto NB Platform,37.4437,-122.1647,0,stn_paloalto
+stn_mountainview,Mountain View,37.3946,-122.0764,1,
+plt_mountainview_nb,Mountain View NB Platform,37.3946,-122.0763,0,stn_mountainview
+stn_sanjose,San Jose Diridon,37.3297,-121.9020,1,
+plt_sanjose_nb,San Jose Diridon NB Platform,37.3297,-121.9019,0,stn_sanjose
