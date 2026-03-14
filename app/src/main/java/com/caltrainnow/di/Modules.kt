@@ -13,6 +13,7 @@ import com.caltrainnow.data.db.CaltrainDatabase
 import com.caltrainnow.data.db.RoomScheduleDataSource
 import com.caltrainnow.data.gtfs.GtfsDownloader
 import com.caltrainnow.data.location.LocationProvider
+import com.caltrainnow.data.preferences.UserPrefsStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -89,20 +90,20 @@ object AppModule {
         return ServiceResolver()
     }
 
+    @Provides
+    @Singleton
+    fun provideUserPrefsStore(@ApplicationContext context: Context): UserPrefsStore {
+        return UserPrefsStore(context)
+    }
+
     /**
-     * Provides the user config. In Phase 2, this will come from DataStore.
-     * For now, uses the default (Sunnyvale → San Francisco).
+     * Provides the DirectionResolver with default config.
+     * The HomeViewModel updates userConfig from DataStore when prefs change.
      */
     @Provides
     @Singleton
-    fun provideUserConfig(): UserConfig {
-        return UserConfig.DEFAULT
-    }
-
-    @Provides
-    @Singleton
-    fun provideDirectionResolver(userConfig: UserConfig): DirectionResolver {
-        return DirectionResolver(userConfig)
+    fun provideDirectionResolver(): DirectionResolver {
+        return DirectionResolver(UserConfig.DEFAULT)
     }
 
     @Provides

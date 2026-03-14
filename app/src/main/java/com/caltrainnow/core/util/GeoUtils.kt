@@ -10,6 +10,7 @@ import kotlin.math.*
 object GeoUtils {
 
     private const val EARTH_RADIUS_METERS = 6_371_000.0
+    private const val ONE_MILE_METERS = 1609.34
 
     /**
      * Calculate the haversine distance between two points in meters.
@@ -30,14 +31,17 @@ object GeoUtils {
 
     /**
      * Find the nearest station to the given coordinates.
-     * Returns null if the station list is empty.
-     * Only considers parent stations (locationType == 1) if available,
-     * otherwise falls back to all stations.
+     * 
+     * @param preferredStationIds Set of station IDs to prioritize (e.g. Home/Work).
+     * @param biasThresholdMeters If a preferred station is within this distance 
+     *        of the absolute nearest station, it will be chosen instead.
      */
     fun findNearestStation(
         lat: Double,
         lng: Double,
-        stations: List<Station>
+        stations: List<Station>,
+        preferredStationIds: Set<String> = emptySet(),
+        biasThresholdMeters: Double = ONE_MILE_METERS
     ): Station? {
         if (stations.isEmpty()) return null
 
@@ -45,9 +49,22 @@ object GeoUtils {
         val parentStations = stations.filter { it.locationType == 1 }
         val candidates = parentStations.ifEmpty { stations }
 
-        return candidates.minByOrNull { station ->
+        val absoluteNearest = candidates.minByOrNull { station ->
             haversineDistance(lat, lng, station.latitude, station.longitude)
-        }
+        } ?: return null
+
+        if (preferredStationIds.isEmpty()) return absoluteNearest
+
+        val nearestDist = haversineDistance(lat, lng, absoluteNearest.latitude, absoluteNearest.longitude)
+
+        // Check if any preferred station is within the bias threshold of the absolute nearest
+        val bestPreferred = candidates
+            .filter { it.stationId in preferredStationIds }
+            .map { it to haversineDistance(lat, lng, it.latitude, it.longitude) }
+            .filter { (_, dist) -> dist <= nearestDist + biasThresholdMeters }
+            .minByOrNull { (_, dist) -> dist }
+
+        return bestPreferred?.first ?: absoluteNearest
     }
 
     /**

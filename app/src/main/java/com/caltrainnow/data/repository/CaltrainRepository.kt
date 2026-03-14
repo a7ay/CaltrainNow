@@ -126,6 +126,18 @@ class CaltrainRepository @Inject constructor(
     }
 
     /**
+     * Look up the next trains with an explicit direction override.
+     */
+    suspend fun lookupNextTrainsWithDirection(
+        lat: Double,
+        lng: Double,
+        direction: Direction,
+        dateTime: LocalDateTime = LocalDateTime.now(PT_ZONE)
+    ): TrainLookupResult {
+        return lookupEngine.lookupNextTrains(lat, lng, dateTime, directionOverride = direction)
+    }
+
+    /**
      * Check if schedule data has been loaded.
      */
     suspend fun isScheduleLoaded(): Boolean {
@@ -137,6 +149,13 @@ class CaltrainRepository @Inject constructor(
      */
     suspend fun getScheduleMetadata(): ScheduleMetadata? {
         return dataSource.getMetadata()
+    }
+
+    /**
+     * Get all stations from the data source.
+     */
+    suspend fun getAllStations(): List<Station> {
+        return dataSource.getAllStations()
     }
 
     // ── Helpers ────────────────────────────────────────────────────

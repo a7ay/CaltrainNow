@@ -31,20 +31,62 @@ class LookupEngine(
         currentLat: Double,
         currentLng: Double,
         currentDateTime: LocalDateTime,
-        limit: Int = 2
+        limit: Int = 2,
+        directionOverride: Direction? = null
     ): TrainLookupResult {
         // 1. Get all stations
         val allStations = dataSource.getAllStations()
         require(allStations.isNotEmpty()) { "No stations loaded. Run initialize() first." }
 
-        // 2. Find nearest station
-        val nearestStation = GeoUtils.findNearestStation(currentLat, currentLng, allStations)
-            ?: throw IllegalStateException("Could not find nearest station")
+        // 2. Find nearest station (with Home/Work bias)
+        val preferredStationIds = getPreferredStationIds(allStations)
+        val nearestStation = GeoUtils.findNearestStation(
+            currentLat, 
+            currentLng, 
+            allStations,
+            preferredStationIds = preferredStationIds
+        ) ?: throw IllegalStateException("Could not find nearest station")
 
         val distanceMeters = GeoUtils.distanceToStation(currentLat, currentLng, nearestStation)
 
-        // 3. Determine direction
-        val directionResult = directionResolver.resolve(currentLat, currentLng, allStations)
+        // 3. Determine direction (use override if provided)
+        val directionResult = if (directionOverride != null) {
+            DirectionResolver.DirectionResult(
+                direction = directionOverride,
+                reason = "Manual override",
+                destinationStationId = directionResolver.resolve(currentLat, currentLng, allStations)
+                    .let { autoResult ->
+                        // When overriding, the destination is the opposite of auto-detect
+                        if (directionOverride == autoResult.direction) {
+                            autoResult.destinationStationId
+                        } else {
+                            // Swap: if auto says go to work, override means go home
+                            directionResolver.resolve(currentLat, currentLng, allStations)
+                                .let { r ->
+                                    val autoDestId = r.destinationStationId
+                                    // Find the "other" destination
+                                    val homeStation = GeoUtils.findNearestStation(
+                                        directionResolver.userConfig.homeLatitude,
+                                        directionResolver.userConfig.homeLongitude,
+                                        allStations
+                                    )
+                                    val workStation = GeoUtils.findNearestStation(
+                                        directionResolver.userConfig.workLatitude,
+                                        directionResolver.userConfig.workLongitude,
+                                        allStations
+                                    )
+                                    if (autoDestId == workStation?.stationId) {
+                                        homeStation?.stationId
+                                    } else {
+                                        workStation?.stationId
+                                    }
+                                }
+                        }
+                    }
+            )
+        } else {
+            directionResolver.resolve(currentLat, currentLng, allStations)
+        }
 
         // 4. Get active services for today
         val calendars = dataSource.getServiceCalendars()
@@ -117,6 +159,17 @@ class LookupEngine(
             nextTrains = trainDepartures,
             stationDistanceMeters = distanceMeters
         )
+    }
+
+    /**
+     * Identify the GTFS station IDs corresponding to the user's Home and Work.
+     */
+    private fun getPreferredStationIds(allStations: List<Station>): Set<String> {
+        val config = directionResolver.userConfig
+        val homeStation = GeoUtils.findNearestStation(config.homeLatitude, config.homeLongitude, allStations)
+        val workStation = GeoUtils.findNearestStation(config.workLatitude, config.workLongitude, allStations)
+        
+        return listOfNotNull(homeStation?.stationId, workStation?.stationId).toSet()
     }
 
     /**

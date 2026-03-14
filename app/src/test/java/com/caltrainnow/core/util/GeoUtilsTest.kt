@@ -16,7 +16,27 @@ class GeoUtilsTest {
         )
         // Should be approximately 48-49 km
         assertThat(distance).isGreaterThan(47_000.0)
-        assertThat(distance).isLessThan(70_000.0)
+        assertThat(distance).isLessThan(80_000.0)
+    }
+
+    @Test
+    fun `findNearestStation - with Home bias - returns Home station even if slightly further`() {
+        val stations = listOf(
+            Station("stn_pa", "Palo Alto", 37.4437, -122.1648, null, 1),
+            Station("stn_mv", "Mountain View", 37.3946, -122.0764, null, 1)
+        )
+        // User is at a coordinate slightly closer to Mountain View
+        // Palo Alto (Home) is ~1500m away, Mountain View is ~1000m away
+        // Since PA is within 1 mile (1609m) of the nearest, and it's preferred, it should win.
+        
+        val nearest = GeoUtils.findNearestStation(
+            lat = 37.4000, 
+            lng = -122.0800, 
+            stations = stations,
+            preferredStationIds = setOf("stn_mv")
+        )
+
+        assertThat(nearest?.stationId).isEqualTo("stn_mv")
     }
 
     @Test

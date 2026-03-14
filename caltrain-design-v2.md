@@ -20,6 +20,7 @@
 | Direction logic | Auto-detect (home→work = NB, work→home = SB) | Zero-friction UX |
 | Navigation | Google Maps intents (no API key needed) | Free, native navigation experience |
 | Abstraction layer | ScheduleDataSource interface | Future flexibility at near-zero cost |
+| Nearest Station Logic | Preferred Location Bias | Prioritize Home/Work stations within 1 mile of absolute nearest |
 
 ---
 
@@ -211,9 +212,21 @@ class GtfsParser {
 ```kotlin
 object GeoUtils {
     fun haversineDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double
-    fun findNearestStation(lat: Double, lng: Double, stations: List<Station>): Station?
+    fun findNearestStation(
+        lat: Double, 
+        lng: Double, 
+        stations: List<Station>,
+        preferredStationIds: Set<String> = emptySet(),
+        biasThresholdMeters: Double = 1609.34
+    ): Station?
 }
 ```
+
+**Algorithm:**
+1. Find the absolute nearest station using Haversine distance.
+2. If `preferredStationIds` is provided, find the closest station among them.
+3. If a preferred station is within `biasThresholdMeters` (default 1 mile) of the absolute nearest station, return the preferred station.
+4. Otherwise, return the absolute nearest station.
 
 ### 8.3 `TimeUtils`
 
@@ -342,7 +355,7 @@ data class TrainDeparture(
 ```
 
 **Algorithm:**
-1. Find nearest station (GeoUtils.findNearestStation).
+1. Find nearest station (GeoUtils.findNearestStation) with Home/Work bias.
 2. Determine direction (DirectionResolver.resolve).
 3. Get active services for today (ServiceResolver.getActiveServiceIds).
 4. Query next 2 departures from the data source.
@@ -588,8 +601,8 @@ LocationProvider.getCurrentLocation()
         ▼
 LookupEngine.lookupNextTrains(lat, lng, now)
         │
-        ├─► GeoUtils.findNearestStation(lat, lng, allStations)
-        │       → Returns closest station
+        ├─► GeoUtils.findNearestStation(lat, lng, allStations, preferredStationIds)
+        │       → Returns closest station (with Home/Work bias)
         │
         ├─► DirectionResolver.resolve(lat, lng, stations)
         │       → Compares distance to home vs work
@@ -669,12 +682,13 @@ Opens Google Maps with walking directions to station
 | Decision | Rationale |
 |----------|-----------|
 | GTFS over PDF | Structured, machine-readable, industry standard. PDF parsing is fragile. |
-| Room/SQLite | No server costs, works offline, fast queries, first-class Android support. |
+| Room/SQLite | No server costs, works offline, fast rewards, first-class Android support. |
 | Google Maps intents | Free (no API key), native navigation experience, one line of code. |
 | ScheduleDataSource interface | Separates pure Kotlin logic from Room. Enables future portability (KMP, server) at near-zero cost now. |
 | Safe init (parse → validate → swap) | Prevents data loss if download is corrupt. Old schedule preserved until new one is confirmed valid. |
 | Auto-detect direction | Reduces friction — open the app, see your trains immediately. |
 | core/ vs data/ package split | core/ has zero Android imports, testable on JVM. data/ wires to Android frameworks. |
+| Preferred Location Bias | Improves UX for commuters by locking to Home/Work stations when in proximity (1 mile). |
 
 ---
 

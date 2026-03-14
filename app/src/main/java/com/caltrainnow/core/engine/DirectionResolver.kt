@@ -17,7 +17,7 @@ import com.caltrainnow.core.util.GeoUtils
  *
  * Pure Kotlin — no Android dependencies.
  */
-class DirectionResolver(private val userConfig: UserConfig) {
+class DirectionResolver(var userConfig: UserConfig) {
 
     data class DirectionResult(
         val direction: Direction,
