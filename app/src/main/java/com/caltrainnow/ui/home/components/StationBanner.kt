@@ -64,10 +64,10 @@ fun StationBanner(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
-                val walkMinutes = estimateWalkMinutes(distanceText)
-                if (walkMinutes != null) {
+                val driveMinutes = estimateDriveMinutes(distanceText)
+                if (driveMinutes != null) {
                     Text(
-                        text = "$walkMinutes min walk",
+                        text = "$driveMinutes min drive",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -78,15 +78,19 @@ fun StationBanner(
 }
 
 /**
- * Rough estimate of walking time from distance text.
- * Average walking speed: ~3 mph or ~20 min/mile.
+ * Rough estimate of driving time from distance text.
+ * Average driving speed: ~25-30 mph in city/commute or ~2 min/mile.
  */
-private fun estimateWalkMinutes(distanceText: String): Int? {
+private fun estimateDriveMinutes(distanceText: String): Int? {
     return try {
         val value = distanceText.replace(Regex("[^0-9.]"), "").toDouble()
         when {
-            distanceText.contains("mi") -> (value * 20).toInt()
-            distanceText.contains("ft") -> (value / 264).toInt() // feet to ~minutes
+            distanceText.contains("mi") -> {
+                // ~2 minutes per mile for city driving
+                val minutes = (value * 2.0).toInt()
+                if (minutes < 1) 1 else minutes
+            }
+            distanceText.contains("ft") -> 1 // If under 1000 ft, it's 1 min drive
             else -> null
         }
     } catch (e: Exception) {

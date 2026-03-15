@@ -14,7 +14,7 @@ android {
         applicationId = "com.caltrainnow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        versionCode = 5
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -28,6 +28,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Include native debug symbols in the build
+            ndk {
+                debugSymbolLevel = "full"
+            }
         }
     }
 

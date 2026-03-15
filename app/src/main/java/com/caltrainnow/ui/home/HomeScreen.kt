@@ -141,7 +141,8 @@ fun HomeScreen(
                                         uiState.nearestStation?.let { station ->
                                             val intent = NavigationUtils.getNavigationIntent(
                                                 station.latitude,
-                                                station.longitude
+                                                station.longitude,
+                                                mode = NavigationUtils.TravelMode.DRIVING
                                             )
                                             try {
                                                 context.startActivity(intent)
@@ -150,7 +151,8 @@ fun HomeScreen(
                                                 val browserIntent = NavigationUtils.getDirectionsIntent(
                                                     station.latitude,
                                                     station.longitude,
-                                                    station.name
+                                                    station.name,
+                                                    mode = NavigationUtils.TravelMode.DRIVING
                                                 )
                                                 context.startActivity(browserIntent)
                                             }

@@ -56,17 +56,25 @@ class SettingsViewModel @Inject constructor(
 
         // Load schedule metadata and stations
         viewModelScope.launch {
-            val meta = repository.getScheduleMetadata()
-            val allStations = repository.getAllStations()
-                .filter { it.locationType == 1 } // Only parent stations
-                .sortedBy { it.stationName }
-            
-            _uiState.update { 
-                it.copy(
-                    scheduleMetadata = meta,
-                    stations = allStations
-                ) 
-            }
+            loadStations()
+        }
+    }
+
+    private suspend fun loadStations() {
+        val meta = repository.getScheduleMetadata()
+        val allStations = repository.getAllStations()
+        
+        // Filter to parent stations only (locationType == 1)
+        // Sort by latitude descending (North to South) to match the physical train line order
+        val stationList = allStations
+            .filter { it.locationType == 1 }
+            .sortedByDescending { it.latitude }
+        
+        _uiState.update { 
+            it.copy(
+                scheduleMetadata = meta,
+                stations = stationList
+            ) 
         }
     }
 
@@ -146,16 +154,13 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isDownloading = true, downloadResult = null) }
             try {
                 val result = repository.initialize()
+                loadStations()
                 val meta = repository.getScheduleMetadata()
-                val allStations = repository.getAllStations()
-                    .filter { it.locationType == 1 }
-                    .sortedBy { it.stationName }
-
+                
                 _uiState.update {
                     it.copy(
                         isDownloading = false,
                         scheduleMetadata = meta,
-                        stations = allStations,
                         downloadResult = if (result.success) {
                             "Schedule updated: ${result.stationCount} stations, ${result.tripCount} trips"
                         } else {
