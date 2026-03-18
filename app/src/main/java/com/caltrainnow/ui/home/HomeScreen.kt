@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.caltrainnow.core.model.WeatherInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -114,15 +115,16 @@ fun HomeScreen(
                             }
                         }
 
-                        // Station banner
+                        // Station banner (departure + departure weather)
                         if (uiState.nearestStation != null) {
                             StationBanner(
                                 station = uiState.nearestStation!!,
-                                distanceText = uiState.stationDistanceText
+                                distanceText = uiState.stationDistanceText,
+                                departureWeather = uiState.departureWeather
                             )
                         }
 
-                        // Direction row
+                        // Direction row + destination weather
                         if (uiState.nearestStation != null) {
                             DirectionRow(
                                 direction = uiState.direction,
@@ -130,6 +132,12 @@ fun HomeScreen(
                                 isOverridden = uiState.isDirectionOverridden,
                                 onToggle = { viewModel.toggleDirection() }
                             )
+                            if (uiState.destinationStation != null && uiState.destinationWeather != null) {
+                                DestinationWeatherLine(
+                                    stationName = uiState.destinationStation!!.name,
+                                    weather = uiState.destinationWeather!!
+                                )
+                            }
                         }
 
                         // Train cards
@@ -317,5 +325,35 @@ private fun LocationPermissionContent(
         ) {
             Text("Grant Location Permission", style = MaterialTheme.typography.labelLarge)
         }
+    }
+}
+
+@Composable
+private fun DestinationWeatherLine(
+    stationName: String,
+    weather: WeatherInfo,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = weather.weatherEmoji(),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = stationName,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "↑${weather.tempHighF.toInt()}° ↓${weather.tempLowF.toInt()}°F",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

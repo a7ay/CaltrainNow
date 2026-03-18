@@ -8,11 +8,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caltrainnow.core.model.StationInfo
+import com.caltrainnow.core.model.WeatherInfo
 
 @Composable
 fun StationBanner(
     station: StationInfo,
     distanceText: String,
+    departureWeather: WeatherInfo? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -30,9 +32,11 @@ fun StationBanner(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left: icon + station name + label
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
@@ -57,13 +61,28 @@ fun StationBanner(
                 }
             }
 
+            // Right: weather (if loaded) + distance/drive time
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = distanceText,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
+                if (departureWeather != null) {
+                    Text(
+                        text = "${departureWeather.weatherEmoji()}  ↑${departureWeather.tempHighF.toInt()}° ↓${departureWeather.tempLowF.toInt()}°F",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = distanceText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        text = distanceText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 val driveMinutes = estimateDriveMinutes(distanceText)
                 if (driveMinutes != null) {
                     Text(
@@ -86,11 +105,10 @@ private fun estimateDriveMinutes(distanceText: String): Int? {
         val value = distanceText.replace(Regex("[^0-9.]"), "").toDouble()
         when {
             distanceText.contains("mi") -> {
-                // ~2 minutes per mile for city driving
                 val minutes = (value * 2.0).toInt()
                 if (minutes < 1) 1 else minutes
             }
-            distanceText.contains("ft") -> 1 // If under 1000 ft, it's 1 min drive
+            distanceText.contains("ft") -> 1
             else -> null
         }
     } catch (e: Exception) {

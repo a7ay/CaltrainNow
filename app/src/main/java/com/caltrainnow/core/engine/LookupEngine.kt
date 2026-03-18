@@ -24,14 +24,14 @@ class LookupEngine(
      * @param currentLat Current latitude
      * @param currentLng Current longitude
      * @param currentDateTime Current local date/time (America/Los_Angeles)
-     * @param limit Number of trains to return (default 2)
+     * @param limit Number of trains to return (default 4)
      * @return TrainLookupResult with nearest station, direction, and next trains
      */
     suspend fun lookupNextTrains(
         currentLat: Double,
         currentLng: Double,
         currentDateTime: LocalDateTime,
-        limit: Int = 2,
+        limit: Int = 4,
         directionOverride: Direction? = null
     ): TrainLookupResult {
         // 1. Get all stations
@@ -98,8 +98,12 @@ class LookupEngine(
         )
 
         if (activeServiceIds.isEmpty()) {
+            val destStationForEmpty = if (directionResult.destinationStationId != null) {
+                dataSource.getStationById(directionResult.destinationStationId)?.toStationInfo()
+            } else null
             return TrainLookupResult(
                 nearestStation = nearestStation.toStationInfo(),
+                destinationStation = destStationForEmpty,
                 direction = directionResult.direction,
                 directionReason = directionResult.reason,
                 nextTrains = emptyList(),
@@ -124,8 +128,12 @@ class LookupEngine(
         )
 
         // 8. Build destination station IDs for arrival time lookup
-        val destStationIds = if (directionResult.destinationStationId != null) {
-            buildStationIds(directionResult.destinationStationId)
+        val destinationStation = if (directionResult.destinationStationId != null) {
+            dataSource.getStationById(directionResult.destinationStationId)?.toStationInfo()
+        } else null
+
+        val destStationIds = if (destinationStation != null) {
+            buildStationIds(directionResult.destinationStationId!!)
         } else {
             emptyList()
         }
@@ -154,6 +162,7 @@ class LookupEngine(
 
         return TrainLookupResult(
             nearestStation = nearestStation.toStationInfo(),
+            destinationStation = destinationStation,
             direction = directionResult.direction,
             directionReason = directionResult.reason,
             nextTrains = trainDepartures,

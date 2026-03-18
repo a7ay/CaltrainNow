@@ -14,6 +14,8 @@ import com.caltrainnow.data.db.RoomScheduleDataSource
 import com.caltrainnow.data.gtfs.GtfsDownloader
 import com.caltrainnow.data.location.LocationProvider
 import com.caltrainnow.data.preferences.UserPrefsStore
+import com.caltrainnow.data.preferences.WeatherCache
+import com.caltrainnow.data.weather.WeatherService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -129,5 +131,17 @@ object AppModule {
     @Singleton
     fun provideLocationProvider(@ApplicationContext context: Context): LocationProvider {
         return LocationProvider(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWeatherService(httpClient: OkHttpClient): WeatherService {
+        return WeatherService(httpClient)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWeatherCache(@ApplicationContext context: Context): WeatherCache {
+        return WeatherCache(context)
     }
 }

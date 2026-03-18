@@ -6,7 +6,9 @@ import com.caltrainnow.core.engine.DirectionResolver
 import com.caltrainnow.core.model.*
 import com.caltrainnow.data.location.LocationProvider
 import com.caltrainnow.data.preferences.UserPrefsStore
+import com.caltrainnow.data.preferences.WeatherCache
 import com.caltrainnow.data.repository.CaltrainRepository
+import com.caltrainnow.data.weather.WeatherService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,6 +20,7 @@ import javax.inject.Inject
 data class HomeUiState(
     val isLoading: Boolean = true,
     val nearestStation: StationInfo? = null,
+    val destinationStation: StationInfo? = null,
     val stationDistanceText: String = "",
     val direction: Direction = Direction.NORTHBOUND,
     val directionReason: String = "",
@@ -28,7 +31,9 @@ data class HomeUiState(
     val scheduleLoaded: Boolean = false,
     val locationPermissionNeeded: Boolean = false,
     val isDownloadingSchedule: Boolean = false,
-    val downloadProgress: String? = null
+    val downloadProgress: String? = null,
+    val departureWeather: WeatherInfo? = null,
+    val destinationWeather: WeatherInfo? = null
 )
 
 @HiltViewModel
@@ -36,7 +41,9 @@ class HomeViewModel @Inject constructor(
     private val repository: CaltrainRepository,
     private val locationProvider: LocationProvider,
     private val userPrefsStore: UserPrefsStore,
-    private val directionResolver: DirectionResolver
+    private val directionResolver: DirectionResolver,
+    private val weatherService: WeatherService,
+    private val weatherCache: WeatherCache
 ) : ViewModel() {
 
     companion object {
@@ -197,6 +204,7 @@ class HomeViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     nearestStation = result.nearestStation,
+                    destinationStation = result.destinationStation,
                     stationDistanceText = formatDistance(result.stationDistanceMeters),
                     direction = directionOverride ?: result.direction,
                     directionReason = if (isOverride) "Manual override" else result.directionReason,
@@ -208,11 +216,36 @@ class HomeViewModel @Inject constructor(
                     locationPermissionNeeded = false
                 )
             }
+
+            // Fetch weather for both stations without blocking train display
+            val dep = result.nearestStation
+            val dest = result.destinationStation
+            viewModelScope.launch {
+                val weather = getWeatherCached(dep.latitude, dep.longitude, isDeparture = true)
+                _uiState.update { it.copy(departureWeather = weather) }
+            }
+            if (dest != null) {
+                viewModelScope.launch {
+                    val weather = getWeatherCached(dest.latitude, dest.longitude, isDeparture = false)
+                    _uiState.update { it.copy(destinationWeather = weather) }
+                }
+            }
         } catch (e: Exception) {
             _uiState.update {
                 it.copy(isLoading = false, error = e.message ?: "Lookup failed")
             }
         }
+    }
+
+    private suspend fun getWeatherCached(lat: Double, lng: Double, isDeparture: Boolean): WeatherInfo? {
+        val cached = if (isDeparture) weatherCache.getDeparture(lat, lng)
+                     else weatherCache.getDestination(lat, lng)
+        if (cached != null) return cached
+
+        val fresh = weatherService.fetchWeather(lat, lng) ?: return null
+        if (isDeparture) weatherCache.saveDeparture(lat, lng, fresh)
+        else weatherCache.saveDestination(lat, lng, fresh)
+        return fresh
     }
 
     private fun formatDistance(meters: Double): String {

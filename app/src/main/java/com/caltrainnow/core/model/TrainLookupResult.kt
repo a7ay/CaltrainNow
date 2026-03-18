@@ -6,6 +6,7 @@ package com.caltrainnow.core.model
  */
 data class TrainLookupResult(
     val nearestStation: StationInfo,
+    val destinationStation: StationInfo?,
     val direction: Direction,
     val directionReason: String,
     val nextTrains: List<TrainDeparture>,

@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-**CaltrainNow** is an Android application that helps a commuter quickly find the next two Caltrain departures based on their current location and time. The app auto-detects travel direction (northbound vs southbound) by comparing proximity to home and work locations, and offers one-tap navigation to the departure station via Google Maps.
+**CaltrainNow** is an Android application that helps a commuter quickly find the next four Caltrain departures based on their current location and time. The app auto-detects travel direction (northbound vs southbound) by comparing proximity to home and work locations, and offers one-tap navigation to the departure station via Google Maps.
 
 **All data and logic lives entirely on-device.** No backend server required.
 
@@ -21,6 +21,8 @@
 | Navigation | Google Maps intents (no API key needed) | Free, native navigation experience |
 | Abstraction layer | ScheduleDataSource interface | Future flexibility at near-zero cost |
 | Nearest Station Logic | Preferred Location Bias | Prioritize Home/Work stations within 1 mile of absolute nearest |
+| Weather API | Open-Meteo (`api.open-meteo.com`) | Free, open source, no API key required; returns WMO weather codes + daily high/low |
+| Weather caching | DataStore (once per day per station) | Avoids redundant network calls; weather doesn't change minute-to-minute |
 
 ---
 
@@ -32,7 +34,7 @@
 | Min SDK | 26 (Android 8.0) |
 | Architecture | MVVM + Repository pattern |
 | Database | Room (SQLite) |
-| Networking | Retrofit + OkHttp (GTFS download only) |
+| Networking | OkHttp (GTFS download + Open-Meteo weather API) |
 | DI | Hilt |
 | Location | Google Play Services (FusedLocationProvider) |
 | Navigation | Google Maps Intents (external, no API key) |
@@ -330,9 +332,10 @@ class LookupEngine(
 ```kotlin
 data class TrainLookupResult(
     val nearestStation: StationInfo,
+    val destinationStation: StationInfo?,   // null if direction cannot be resolved
     val direction: Direction,
     val directionReason: String,
-    val nextTrains: List<TrainDeparture>,   // up to 2
+    val nextTrains: List<TrainDeparture>,   // up to 4
     val stationDistanceMeters: Double
 )
 
@@ -358,7 +361,7 @@ data class TrainDeparture(
 1. Find nearest station (GeoUtils.findNearestStation) with Home/Work bias.
 2. Determine direction (DirectionResolver.resolve).
 3. Get active services for today (ServiceResolver.getActiveServiceIds).
-4. Query next 2 departures from the data source.
+4. Query next 4 departures from the data source.
 5. Look up arrival time at destination station for each trip.
 6. Return result.
 
@@ -462,6 +465,7 @@ app/
 │   │   │   ├── ScheduleMetadata.kt
 │   │   │   ├── TrainLookupResult.kt
 │   │   │   ├── TrainDeparture.kt
+│   │   │   ├── WeatherInfo.kt
 │   │   │   ├── InitResult.kt
 │   │   │   └── ValidationResult.kt
 │   │   ├── datasource/
@@ -491,6 +495,8 @@ app/
 │   │   │   └── GtfsDownloader.kt              # HTTP download + unzip
 │   │   ├── location/
 │   │   │   └── LocationProvider.kt            # FusedLocationProvider wrapper
+│   │   ├── weather/
+│   │   │   └── WeatherService.kt              # Open-Meteo API fetch
 │   │   └── repository/
 │   │       └── CaltrainRepository.kt          # Orchestrates init + lookup
 │   │
@@ -613,8 +619,8 @@ LookupEngine.lookupNextTrains(lat, lng, now)
         │       → Returns list of active service IDs
         │
         ├─► ScheduleDataSource.getNextDepartures(
-        │       stationId, direction, serviceIds, currentTime, limit=2)
-        │       → SQL query, returns next 2 departures
+        │       stationId, direction, serviceIds, currentTime, limit=4)
+        │       → SQL query, returns next 4 departures
         │
         ├─► For each departure:
         │       ScheduleDataSource.getArrivalAtStation(tripId, destStationId)
@@ -638,7 +644,39 @@ LookupEngine.lookupNextTrains(lat, lng, now)
         └─────────────────────────────────┘
 ```
 
-### 11.3 Navigate (one-tap)
+### 11.3 Weather Fetch (after train lookup)
+
+```
+Train lookup completes
+        │
+        ▼
+HomeViewModel launches two parallel coroutines:
+
+[Departure station]                   [Destination station]
+WeatherCache.getDeparture(lat, lng)   WeatherCache.getDestination(lat, lng)
+        │                                     │
+   Cache hit?                            Cache hit?
+   (same date + station)                 (same date + station)
+        │                                     │
+   Yes → return cached                   Yes → return cached
+        │                                     │
+   No  → WeatherService.fetchWeather()   No  → WeatherService.fetchWeather()
+           (Open-Meteo API)                      (Open-Meteo API)
+           → WeatherCache.saveDeparture()        → WeatherCache.saveDestination()
+        │                                     │
+        ▼                                     ▼
+_uiState.departureWeather updated     _uiState.destinationWeather updated
+        │
+        ▼
+WeatherRow composable renders side-by-side:
+┌────────────────────────────────────────────────┐
+│  ⛅ Partly Cloudy     │    ☁️ Overcast          │
+│  ↑68°  ↓52°F         │    ↑58°  ↓49°F          │
+│  Palo Alto           │    San Francisco        │
+└────────────────────────────────────────────────┘
+```
+
+### 11.4 Navigate (one-tap)
 
 ```
 User taps "Navigate to Station"
@@ -652,7 +690,62 @@ Opens Google Maps with walking directions to station
 
 ---
 
-## 12. Build Phases
+## 12. Weather Feature
+
+### 12.1 API — Open-Meteo
+
+Free, open-source weather API. No API key or account required.
+
+```
+GET https://api.open-meteo.com/v1/forecast
+    ?latitude={lat}
+    &longitude={lng}
+    &daily=weather_code,temperature_2m_max,temperature_2m_min
+    &temperature_unit=fahrenheit
+    &timezone=America%2FLos_Angeles
+    &forecast_days=1
+```
+
+Returns a single day's forecast: WMO weather code, daily high (°F), and daily low (°F).
+
+### 12.2 Model — `WeatherInfo`
+
+```kotlin
+data class WeatherInfo(
+    val weatherCode: Int,   // WMO code (0 = clear, 3 = overcast, 61 = rain, etc.)
+    val tempHighF: Double,
+    val tempLowF: Double
+) {
+    fun weatherEmoji(): String  // ☀️ ⛅ ☁️ 🌫️ 🌦️ 🌧️ ❄️ ⛈️
+    fun weatherDescription(): String  // "Clear", "Partly Cloudy", "Rain", etc.
+}
+```
+
+### 12.3 Caching — `WeatherCache`
+
+Backed by a separate **DataStore** (`weather_cache`). Stores two entries — one for the departure station and one for the destination station.
+
+Each entry is keyed by:
+- **Date** (`yyyy-MM-dd`) — expires at midnight
+- **Station key** (`lat_lng` rounded to 3 decimal places) — expires if station changes
+
+On a cache hit (same date + same station), no network call is made. On a miss, `WeatherService` fetches fresh data and the result is saved.
+
+### 12.4 UI — `WeatherRow`
+
+A compact `Card` composable placed between the station banner and the direction toggle on the Home screen. Displays both stations side by side:
+
+| Departure | | Destination |
+|---|---|---|
+| emoji + description | divider | emoji + description |
+| ↑high° ↓low°F | | ↑high° ↓low°F |
+| station name | | station name |
+
+The row only renders once at least one weather value is available; it does not block the train cards from loading.
+
+---
+
+## 13. Build Phases
 
 ### Phase 1: Core Logic + Data Layer (current scope)
 - Pure Kotlin core: parser, geo utils, time utils, direction resolver, service resolver, lookup engine, validator
@@ -662,7 +755,7 @@ Opens Google Maps with walking directions to station
 - Integration tests for init → validate → lookup flow
 
 ### Phase 2: Android UI
-- Home screen showing next 2 trains with countdown timers
+- Home screen showing next 4 trains with countdown timers
 - Settings screen for home/work locations (map picker or address entry)
 - Pull-to-refresh for schedule update
 - One-tap "Navigate to Station" button
@@ -677,7 +770,7 @@ Opens Google Maps with walking directions to station
 
 ---
 
-## 13. Key Design Decisions & Rationale
+## 14. Key Design Decisions & Rationale
 
 | Decision | Rationale |
 |----------|-----------|
@@ -689,10 +782,13 @@ Opens Google Maps with walking directions to station
 | Auto-detect direction | Reduces friction — open the app, see your trains immediately. |
 | core/ vs data/ package split | core/ has zero Android imports, testable on JVM. data/ wires to Android frameworks. |
 | Preferred Location Bias | Improves UX for commuters by locking to Home/Work stations when in proximity (1 mile). |
+| Open-Meteo for weather | Free and open source — no API key, no account, no rate limit concerns for a single-user app. |
+| Weather cached once per day | Weather changes slowly; fetching on every refresh would be wasteful. Cache keyed by date + station ensures fresh data each morning. |
+| Weather non-blocking | Weather fetch runs after train data is displayed so the user sees trains immediately; weather appears moments later. |
 
 ---
 
-## 14. GTFS Edge Cases to Handle
+## 15. GTFS Edge Cases to Handle
 
 | Edge case | How we handle it |
 |-----------|-----------------|
@@ -707,7 +803,7 @@ Opens Google Maps with walking directions to station
 
 ---
 
-## 15. Open Questions for Phase 2
+## 16. Open Questions for Phase 2
 
 1. **UI framework:** Jetpack Compose (modern) vs XML Views (traditional)?
 2. **Location picker for settings:** Manual lat/long entry, address search, or map tap?

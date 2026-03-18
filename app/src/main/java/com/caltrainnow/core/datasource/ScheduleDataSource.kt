@@ -42,7 +42,7 @@ interface ScheduleDataSource {
         direction: Int,
         serviceIds: List<String>,
         afterTime: String,           // HH:MM:SS sortable format
-        limit: Int = 2
+        limit: Int = 4
     ): List<StopTimeWithTrip>
 
     /** Get the arrival time for a specific trip at a specific station. */
