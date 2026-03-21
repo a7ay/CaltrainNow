@@ -1,6 +1,5 @@
 package com.caltrainnow.ui.home
 
-import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,7 +16,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.caltrainnow.ui.home.components.*
-import com.caltrainnow.ui.theme.CaltrainRed
 import com.caltrainnow.util.NavigationUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
