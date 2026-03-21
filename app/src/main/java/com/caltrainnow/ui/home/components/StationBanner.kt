@@ -1,6 +1,8 @@
 package com.caltrainnow.ui.home.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,6 +16,7 @@ import com.caltrainnow.core.model.WeatherInfo
 fun StationBanner(
     station: StationInfo,
     distanceText: String,
+    onNavigate: () -> Unit,
     departureWeather: WeatherInfo? = null,
     modifier: Modifier = Modifier
 ) {
@@ -62,7 +65,7 @@ fun StationBanner(
             }
 
             // Right: weather (if loaded) + distance/drive time
-            Column(horizontalAlignment = Alignment.End) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
                 if (departureWeather != null) {
                     Text(
                         text = "${departureWeather.weatherEmoji()}  ↑${departureWeather.tempHighF.toInt()}° ↓${departureWeather.tempLowF.toInt()}°F",
@@ -91,6 +94,14 @@ fun StationBanner(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+
+            // Navigate icon button
+            FilledTonalIconButton(onClick = onNavigate) {
+                Icon(
+                    imageVector = Icons.Default.Navigation,
+                    contentDescription = "Navigate to station"
+                )
             }
         }
     }

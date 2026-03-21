@@ -120,7 +120,26 @@ fun HomeScreen(
                             StationBanner(
                                 station = uiState.nearestStation!!,
                                 distanceText = uiState.stationDistanceText,
-                                departureWeather = uiState.departureWeather
+                                departureWeather = uiState.departureWeather,
+                                onNavigate = {
+                                    val station = uiState.nearestStation!!
+                                    val intent = NavigationUtils.getNavigationIntent(
+                                        station.latitude,
+                                        station.longitude,
+                                        mode = NavigationUtils.TravelMode.DRIVING
+                                    )
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        val browserIntent = NavigationUtils.getDirectionsIntent(
+                                            station.latitude,
+                                            station.longitude,
+                                            station.name,
+                                            mode = NavigationUtils.TravelMode.DRIVING
+                                        )
+                                        context.startActivity(browserIntent)
+                                    }
+                                }
                             )
                         }
 
@@ -143,30 +162,7 @@ fun HomeScreen(
                         // Train cards
                         if (uiState.nextTrains.isNotEmpty()) {
                             uiState.nextTrains.forEach { train ->
-                                TrainCard(
-                                    train = train,
-                                    onNavigate = {
-                                        uiState.nearestStation?.let { station ->
-                                            val intent = NavigationUtils.getNavigationIntent(
-                                                station.latitude,
-                                                station.longitude,
-                                                mode = NavigationUtils.TravelMode.DRIVING
-                                            )
-                                            try {
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                // Fallback to browser directions
-                                                val browserIntent = NavigationUtils.getDirectionsIntent(
-                                                    station.latitude,
-                                                    station.longitude,
-                                                    station.name,
-                                                    mode = NavigationUtils.TravelMode.DRIVING
-                                                )
-                                                context.startActivity(browserIntent)
-                                            }
-                                        }
-                                    }
-                                )
+                                TrainCard(train = train)
                             }
                         } else if (!uiState.isLoading && uiState.error == null) {
                             // No trains

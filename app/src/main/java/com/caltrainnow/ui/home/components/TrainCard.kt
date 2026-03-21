@@ -1,10 +1,7 @@
 package com.caltrainnow.ui.home.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,7 +17,6 @@ import com.caltrainnow.ui.theme.*
 @Composable
 fun TrainCard(
     train: TrainDeparture,
-    onNavigate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val routeColor = routeTypeColor(train.routeType)
@@ -131,29 +127,6 @@ fun TrainCard(
                 }
             }
 
-            // Navigate button
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = onNavigate,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(
-                    1.5.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                ),
-                contentPadding = PaddingValues(vertical = 10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Navigation,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Navigate to Station",
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
         }
     }
 }
