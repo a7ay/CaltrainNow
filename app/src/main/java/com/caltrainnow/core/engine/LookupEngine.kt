@@ -5,6 +5,7 @@ import com.caltrainnow.core.model.*
 import com.caltrainnow.core.util.GeoUtils
 import com.caltrainnow.core.util.TimeUtils
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Central query engine for looking up the next trains.
@@ -156,7 +157,16 @@ class LookupEngine(
                 ),
                 headsign = dep.tripHeadsign ?: directionResult.direction.name,
                 routeType = resolveRouteType(dep.routeShortName, dep.tripId),
-                trainNumber = extractTrainNumber(dep.tripId)
+                trainNumber = extractTrainNumber(dep.tripId),
+                routeId = dep.routeId,
+                boardingStopIds = stationIds,
+                destinationStopIds = destStationIds,
+                serviceDate = (if (currentDateTime.hour < 3) {
+                    currentDateTime.toLocalDate().minusDays(1)
+                } else {
+                    currentDateTime.toLocalDate()
+                })
+                    .format(DateTimeFormatter.BASIC_ISO_DATE)
             )
         }
 

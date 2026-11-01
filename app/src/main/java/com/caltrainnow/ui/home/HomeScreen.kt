@@ -157,10 +157,48 @@ fun HomeScreen(
                             }
                         }
 
+                        ServiceAlertsSection(alerts = uiState.serviceAlerts)
+
+                        when {
+                            !uiState.realtimeConfigured -> Text(
+                                text = "Live transit updates not configured · 511 SF Bay",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            uiState.realtimeLoading -> Text(
+                                text = "Refreshing live transit updates…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            uiState.realtimeHasError -> Text(
+                                text = buildString {
+                                    append("Live updates may be stale · 511 SF Bay")
+                                    uiState.alertsUpdatedAt?.let { append(" · alerts $it") }
+                                    uiState.tripUpdatesUpdatedAt?.let { append(" · trains $it") }
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            uiState.alertsUpdatedAt != null || uiState.tripUpdatesUpdatedAt != null -> Text(
+                                text = buildString {
+                                    append("Live updates from 511 SF Bay")
+                                    uiState.alertsUpdatedAt?.let { append(" · alerts $it") }
+                                    uiState.tripUpdatesUpdatedAt?.let { append(" · trains $it") }
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         // Train cards
                         if (uiState.nextTrains.isNotEmpty()) {
                             uiState.nextTrains.forEach { train ->
-                                TrainCard(train = train)
+                                TrainCard(
+                                    train = train,
+                                    realtimeUpdate = if (uiState.realtimeConfigured) {
+                                        uiState.trainRealtimeUpdates[train.tripId]
+                                    } else null
+                                )
                             }
                         } else if (!uiState.isLoading && uiState.error == null) {
                             // No trains

@@ -256,3 +256,35 @@ A quick reference showing which tests cover which risks:
 | Express trains shown at skip stations | Lookup integration test (express doesn't stop at all stations) |
 | No trains remaining today | Lookup integration test (late night edge case) |
 | DB migration breaks data | Room migration tests (Phase 2+, if schema changes) |
+
+---
+
+## 10. 511 Realtime Feature Tests
+
+The 511 feature is specified in [`caltrain-511-alerts-requirements-design.md`](caltrain-511-alerts-requirements-design.md). `RealtimeMatcherTest` covers direction/period filtering and exact trip matching; parser, cache, and UI coverage below remains to be added. Live API calls must not be part of CI.
+
+### Unit tests
+
+| Test | What it verifies |
+|---|---|
+| `serviceAlerts_activePeriod_filtersExpiredAlerts` | Active alerts are retained and expired alerts excluded. |
+| `serviceAlerts_matchesSelectedDirection` | Route/trip/direction selectors match only the selected travel direction. |
+| `serviceAlerts_agencyWide_matchesBothDirections` | Alerts without narrower selectors remain relevant in both directions. |
+| `tripUpdates_exactTripId_matchesDisplayedTrain` | An exact GTFS-Realtime trip descriptor updates only the corresponding scheduled trip. |
+| `tripUpdates_mismatchedIds_neverMatchByTrainNumberAlone` | A shared train number cannot cause an ambiguous/wrong update. |
+| `tripUpdates_stopDelay_usesBoardingAndDestinationStops` | Stop-specific departure and arrival changes are attached to the proper stops. |
+| `tripUpdates_canceledTrip_reportsCanceled` | Canceled trips surface cancellation rather than a delay. |
+| `tripUpdates_noMatch_isNotOnTime` | Missing update is represented as unknown/no realtime update, not on time. |
+| `realtimeCache_attemptCooldown_isAtLeast15Minutes` | Successes and failures both respect the minimum interval before another request. |
+| `realtimeCache_failedRefresh_preservesLastGoodData` | Failed network/parse attempts do not erase cached results. |
+
+### ViewModel and UI tests
+
+- Scheduled train cards appear without waiting for either realtime feed.
+- Service-alert filtering updates when the user toggles direction without causing an extra request inside the cooldown.
+- Cached alerts and trip updates remain visible with a stale timestamp after a network failure.
+- Empty alerts are a normal state; they do not become a global Home error.
+- Missing/invalid token and malformed feeds leave scheduled train lookup usable.
+- Delay, updated time, canceled, and no-realtime states render distinctly.
+
+Use sanitized Service Alerts JSON and GTFS-Realtime protobuf fixtures. Keep an optional manual smoke test for validating the current 511 agency ID, feed schema, and trip-ID compatibility against the app's static GTFS feed.

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,24 +8,48 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val caltrain511ApiKey = providers.gradleProperty("caltrain511ApiKey")
+    .orElse(providers.environmentVariable("CALTRAIN_511_API_KEY"))
+    .orElse(localProperties.getProperty("caltrain511ApiKey", ""))
+    .get()
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
 android {
     namespace = "com.caltrainnow"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.caltrainnow"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.0"
+        targetSdk = 37
+        versionCode = 10
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildToolsVersion = "37.0.0"
+
+        buildConfigField("String", "CALTRAIN_511_API_KEY", "\"$caltrain511ApiKey\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../keystore/Ajayg.jks")
+            storePassword = System.getenv("CALTRAIN_RELEASE_STORE_PASSWORD")
+            keyAlias = "key0"
+            keyPassword = System.getenv("CALTRAIN_RELEASE_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -54,6 +80,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -91,8 +118,10 @@ dependencies {
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Networking (GTFS download only)
+    // Networking (GTFS schedule, weather, and 511 realtime feeds)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.mobilitydata:gtfs-realtime-bindings:0.2.0")
+    implementation("com.google.protobuf:protobuf-java-util:4.34.0")
 
     // Location
     implementation("com.google.android.gms:play-services-location:21.3.0")

@@ -11,11 +11,13 @@ import com.caltrainnow.core.parser.GtfsParser
 import com.caltrainnow.core.validation.ScheduleValidator
 import com.caltrainnow.data.db.CaltrainDatabase
 import com.caltrainnow.data.db.RoomScheduleDataSource
+import com.caltrainnow.data.alerts.Transit511Api
 import com.caltrainnow.data.gtfs.GtfsDownloader
 import com.caltrainnow.data.location.LocationProvider
 import com.caltrainnow.data.preferences.UserPrefsStore
 import com.caltrainnow.data.preferences.WeatherCache
 import com.caltrainnow.data.weather.WeatherService
+import com.caltrainnow.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -74,6 +76,11 @@ object NetworkModule {
     ): GtfsDownloader {
         return GtfsDownloader(context, httpClient)
     }
+
+    @Provides
+    @Singleton
+    fun provideTransit511Api(httpClient: OkHttpClient): Transit511Api =
+        Transit511Api(httpClient, BuildConfig.CALTRAIN_511_API_KEY)
 }
 
 @Module

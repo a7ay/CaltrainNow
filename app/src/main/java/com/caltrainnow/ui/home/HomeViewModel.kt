@@ -8,9 +8,11 @@ import com.caltrainnow.data.location.LocationProvider
 import com.caltrainnow.data.preferences.UserPrefsStore
 import com.caltrainnow.data.preferences.WeatherCache
 import com.caltrainnow.data.repository.CaltrainRepository
+import com.caltrainnow.data.repository.RealtimeTransitRepository
 import com.caltrainnow.data.weather.WeatherService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -33,7 +35,14 @@ data class HomeUiState(
     val isDownloadingSchedule: Boolean = false,
     val downloadProgress: String? = null,
     val departureWeather: WeatherInfo? = null,
-    val destinationWeather: WeatherInfo? = null
+    val destinationWeather: WeatherInfo? = null,
+    val serviceAlerts: List<TransitAlert> = emptyList(),
+    val trainRealtimeUpdates: Map<String, TrainRealtimeUpdate> = emptyMap(),
+    val alertsUpdatedAt: String? = null,
+    val tripUpdatesUpdatedAt: String? = null,
+    val realtimeConfigured: Boolean = false,
+    val realtimeLoading: Boolean = false,
+    val realtimeHasError: Boolean = false
 )
 
 @HiltViewModel
@@ -43,7 +52,8 @@ class HomeViewModel @Inject constructor(
     private val userPrefsStore: UserPrefsStore,
     private val directionResolver: DirectionResolver,
     private val weatherService: WeatherService,
-    private val weatherCache: WeatherCache
+    private val weatherCache: WeatherCache,
+    private val realtimeTransitRepository: RealtimeTransitRepository
 ) : ViewModel() {
 
     companion object {
@@ -57,6 +67,7 @@ class HomeViewModel @Inject constructor(
     // Cache the last GPS location for direction toggle (no re-fetch needed)
     private var lastLat: Double? = null
     private var lastLng: Double? = null
+    private var realtimeJob: kotlinx.coroutines.Job? = null
 
     init {
         // Observe user prefs and update DirectionResolver when they change
@@ -210,6 +221,8 @@ class HomeViewModel @Inject constructor(
                     directionReason = if (isOverride) "Manual override" else result.directionReason,
                     isDirectionOverridden = isOverride,
                     nextTrains = result.nextTrains,
+                    serviceAlerts = emptyList(),
+                    trainRealtimeUpdates = emptyMap(),
                     lastRefreshed = now.format(TIME_FORMATTER),
                     error = null,
                     scheduleLoaded = true,
@@ -228,6 +241,37 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch {
                     val weather = getWeatherCached(dest.latitude, dest.longitude, isDeparture = false)
                     _uiState.update { it.copy(destinationWeather = weather) }
+                }
+            }
+
+            // Realtime feeds are independent of the schedule lookup and must never block it.
+            realtimeJob?.cancel()
+            realtimeJob = viewModelScope.launch {
+                _uiState.update { it.copy(realtimeLoading = true) }
+                val realtime = try {
+                    realtimeTransitRepository.getRealtime(
+                        trains = result.nextTrains,
+                        direction = directionOverride ?: result.direction
+                    )
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+                if (realtime != null) {
+                    _uiState.update {
+                        it.copy(
+                            serviceAlerts = realtime.alerts,
+                            trainRealtimeUpdates = realtime.trainUpdates,
+                            alertsUpdatedAt = realtime.alertsUpdatedAtEpochMillis?.let(::formatRealtimeTime),
+                            tripUpdatesUpdatedAt = realtime.tripUpdatesUpdatedAtEpochMillis?.let(::formatRealtimeTime),
+                            realtimeConfigured = realtime.isConfigured,
+                            realtimeLoading = false,
+                            realtimeHasError = realtime.hasError
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(realtimeLoading = false, realtimeHasError = true) }
                 }
             }
         } catch (e: Exception) {
@@ -256,4 +300,9 @@ class HomeViewModel @Inject constructor(
             "%.1f mi".format(miles)
         }
     }
+
+    private fun formatRealtimeTime(epochMillis: Long): String =
+        java.time.Instant.ofEpochMilli(epochMillis)
+            .atZone(PT_ZONE)
+            .format(TIME_FORMATTER)
 }

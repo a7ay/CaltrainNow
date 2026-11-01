@@ -17,7 +17,7 @@
 
 ### 1. Home Screen (`HomeScreen`)
 
-The primary screen. Opens instantly and shows the next 2 trains.
+The primary screen. Opens instantly and shows the next 4 trains.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -59,7 +59,7 @@ The primary screen. Opens instantly and shows the next 2 trains.
 | **Top bar** | App title + settings gear icon |
 | **Station banner** | Nearest station name + walking distance |
 | **Direction row** | NB/SB indicator + toggle button + reason text |
-| **Train card ×2** | Departure time, countdown, route type, train #, arrival at destination, navigate button |
+| **Train card ×4** | Departure time, countdown, route type, train #, arrival at destination, navigate button |
 | **Status footer** | Last refresh timestamp |
 | **Pull-to-refresh** | Wraps the entire content |
 
@@ -367,3 +367,15 @@ implementation("com.google.accompanist:accompanist-permissions:0.34.0")  // runt
 | Walking distance > 2 miles | Warning: "You may be far from a Caltrain station" |
 | After-midnight trains | Display with correct 12h time (1:30 AM not 25:30) |
 | Express skips destination station | Show "Does not stop at [destination]" instead of arrival time |
+
+---
+
+## 511 Service Alerts and Trip Updates
+
+This behavior is implemented; live data requires the app-level 511 token. Product requirements, data matching, token handling, and implementation details are in [`caltrain-511-alerts-requirements-design.md`](caltrain-511-alerts-requirements-design.md).
+
+- Add a compact **Service alerts** section below the direction row and above the four train cards. Show active Caltrain alerts relevant to the selected direction; agency-wide alerts apply to either direction.
+- Annotate each train card only when a 511 Trip Update can be safely matched to that scheduled train. Show delay/updated station time or a cancellation state.
+- Do not label a train “on time” just because no Trip Update matched it.
+- Keep scheduled departures visible while realtime data loads, is stale, or is unavailable. Show the last successful realtime update time.
+- Fetch on app open/foreground or pull-to-refresh only after the 15-minute cooldown; do not add background polling or push notifications in this scope.

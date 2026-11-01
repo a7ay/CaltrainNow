@@ -134,6 +134,18 @@ Let's make sure the toolchain is working before we add our code:
 
 ---
 
+## Configure the 511 Transit API Token
+
+The app uses one app-level 511 SF Bay token for service alerts and trip updates. Request a free token at [511.org](https://511.org/open-data/token), then add it to the ignored root `local.properties` file (keep any existing `sdk.dir` line):
+
+```properties
+caltrain511ApiKey=YOUR_511_TOKEN
+```
+
+Alternatively, set `CALTRAIN_511_API_KEY` in the build environment. Do not commit the token. A build without a token still shows scheduled trains, but live transit updates remain unavailable. The token is embedded in the APK at build time and can be extracted from a distributed APK; this approach is not strong secret protection.
+
+---
+
 ## Step 7: Understand the Project Files I'll Provide
 
 When I build Phase 1, here's what you'll receive and where it goes:

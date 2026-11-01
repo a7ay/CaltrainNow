@@ -12,11 +12,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caltrainnow.core.model.TrainDeparture
+import com.caltrainnow.core.model.TrainRealtimeStatus
+import com.caltrainnow.core.model.TrainRealtimeUpdate
 import com.caltrainnow.ui.theme.*
 
 @Composable
 fun TrainCard(
     train: TrainDeparture,
+    realtimeUpdate: TrainRealtimeUpdate? = null,
     modifier: Modifier = Modifier
 ) {
     val routeColor = routeTypeColor(train.routeType)
@@ -105,6 +108,45 @@ fun TrainCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = countdownColor,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            if (realtimeUpdate != null) {
+                val statusText = when (realtimeUpdate.status) {
+                    TrainRealtimeStatus.NO_UPDATE -> "No realtime update"
+                    TrainRealtimeStatus.ON_TIME -> "Realtime · On time"
+                    TrainRealtimeStatus.DELAYED -> "Delayed${realtimeUpdate.delayMinutes?.let { " ${it} min" } ?: ""}"
+                    TrainRealtimeStatus.CANCELED -> "Canceled"
+                    TrainRealtimeStatus.UPDATED -> "Realtime update"
+                }
+                val statusColor = when (realtimeUpdate.status) {
+                    TrainRealtimeStatus.DELAYED, TrainRealtimeStatus.CANCELED -> LateRed
+                    TrainRealtimeStatus.ON_TIME -> OnTimeGreen
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statusColor,
+                    modifier = Modifier.padding(start = 42.dp)
+                )
+                realtimeUpdate.updatedDepartureTime?.let { updatedTime ->
+                    Text(
+                        text = "Updated departure: $updatedTime (scheduled ${train.departureTime})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 42.dp, top = 2.dp)
+                    )
+                }
+                realtimeUpdate.updatedArrivalTime?.let { updatedTime ->
+                    Text(
+                        text = "Updated arrival: $updatedTime",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 42.dp, top = 2.dp)
                     )
                 }
             }

@@ -23,6 +23,7 @@
 | Nearest Station Logic | Preferred Location Bias | Prioritize Home/Work stations within 1 mile of absolute nearest |
 | Weather API | Open-Meteo (`api.open-meteo.com`) | Free, open source, no API key required; returns WMO weather codes + daily high/low |
 | Weather caching | DataStore (once per day per station) | Avoids redundant network calls; weather doesn't change minute-to-minute |
+| Realtime transit data | 511 SF Bay Service Alerts + GTFS-Realtime Trip Updates | Direction-relevant Caltrain alerts and safely matched delay/cancellation updates for the four displayed trains; 15-minute request cooldown; app-level build token |
 
 ---
 
@@ -764,6 +765,7 @@ The row only renders once at least one weather value is available; it does not b
 ### Phase 3: Enhancements
 - Home screen widget (at-a-glance next train)
 - Push notification X minutes before departure
+- Direction-relevant 511 service alerts and trip-specific realtime updates (implemented; see [`caltrain-511-alerts-requirements-design.md`](caltrain-511-alerts-requirements-design.md))
 - Favorite stations override auto-detect
 - Schedule staleness check (prompt refresh if data is old)
 - Weekend/holiday schedule indicator in UI

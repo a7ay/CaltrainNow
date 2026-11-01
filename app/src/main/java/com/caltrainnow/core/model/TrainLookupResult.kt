@@ -33,7 +33,11 @@ data class TrainDeparture(
     val minutesUntilDeparture: Long,
     val headsign: String,
     val routeType: String,
-    val trainNumber: String
+    val trainNumber: String,
+    val routeId: String = "",
+    val boardingStopIds: List<String> = emptyList(),
+    val destinationStopIds: List<String> = emptyList(),
+    val serviceDate: String = ""
 )
 
 /**

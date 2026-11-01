@@ -13,8 +13,13 @@ An Android app that shows you the next available Caltrain departures to get you 
 - Next 4 upcoming train departures with countdown timers
 - Arrival time at destination for each train
 - Daily weather summary (icon + high/low °F) for both departure and destination stations
+- Direction-relevant Caltrain service alerts and per-train realtime delay/cancellation updates from 511 SF Bay (requires a build-time API token)
 - One-tap navigation to the departure station via Google Maps
 - Offline-first — schedule stored locally via Room/SQLite (GTFS)
+
+### 511 live transit information
+
+The app fetches direction-relevant service alerts and trip-specific updates for the four displayed trains. Configure `caltrain511ApiKey` in the ignored `local.properties` file or set `CALTRAIN_511_API_KEY` when building. Without a token, scheduled trains still work and the Home screen reports that live updates are not configured. See [`caltrain-511-alerts-requirements-design.md`](caltrain-511-alerts-requirements-design.md) for matching constraints, token handling, and architecture details.
 
 ---
 
@@ -25,7 +30,7 @@ An Android app that shows you the next available Caltrain departures to get you 
 - **Architecture:** MVVM + Repository pattern
 - **Database:** Room (SQLite)
 - **DI:** Hilt
-- **Networking:** OkHttp (GTFS download + weather API)
+- **Networking:** OkHttp (GTFS download + weather + 511 realtime feeds)
 - **Location:** Google Play Services (FusedLocationProvider)
 - **Preferences:** Jetpack DataStore
 - **Async:** Kotlin Coroutines + Flow
@@ -64,3 +69,10 @@ An Android app that shows you the next available Caltrain departures to get you 
 ## Setup
 
 See [`caltrain-android-studio-setup.md`](caltrain-android-studio-setup.md) for build and run instructions.
+
+## Design and testing documents
+
+- [`caltrain-design-v2.md`](caltrain-design-v2.md) — app architecture and core design
+- [`caltrain-ui-plan.md`](caltrain-ui-plan.md) — Compose UI plan
+- [`caltrain-testing-strategy.md`](caltrain-testing-strategy.md) — test strategy
+- [`caltrain-511-alerts-requirements-design.md`](caltrain-511-alerts-requirements-design.md) — proposed 511 product requirements and implementation design
