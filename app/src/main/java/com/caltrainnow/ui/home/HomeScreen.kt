@@ -159,35 +159,68 @@ fun HomeScreen(
 
                         ServiceAlertsSection(alerts = uiState.serviceAlerts)
 
-                        when {
-                            !uiState.realtimeConfigured -> Text(
-                                text = "Live transit updates not configured · 511 SF Bay",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            uiState.realtimeLoading -> Text(
-                                text = "Refreshing live transit updates…",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            uiState.realtimeHasError -> Text(
-                                text = buildString {
-                                    append("Live updates may be stale · 511 SF Bay")
-                                    uiState.alertsUpdatedAt?.let { append(" · alerts $it") }
-                                    uiState.tripUpdatesUpdatedAt?.let { append(" · trains $it") }
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            uiState.alertsUpdatedAt != null || uiState.tripUpdatesUpdatedAt != null -> Text(
-                                text = buildString {
-                                    append("Live updates from 511 SF Bay")
-                                    uiState.alertsUpdatedAt?.let { append(" · alerts $it") }
-                                    uiState.tripUpdatesUpdatedAt?.let { append(" · trains $it") }
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        // Live updates status + manual refresh
+                        if (!uiState.realtimeConfigured) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Live transit updates not configured · 511 SF Bay",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    if (uiState.realtimeLoading) {
+                                        Text(
+                                            text = "Refreshing live transit updates…",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        val lastTime = uiState.lastRealtimeRefresh
+                                            ?: listOfNotNull(uiState.alertsUpdatedAt, uiState.tripUpdatesUpdatedAt).maxOrNull()
+                                        if (lastTime != null) {
+                                            val prefix = if (uiState.realtimeHasError) "Cached · " else "Live updates · "
+                                            Text(
+                                                text = "$prefix updated $lastTime · 511 SF Bay",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (uiState.realtimeHasError) {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                }
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "No live updates yet · 511 SF Bay",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                if (!uiState.realtimeLoading) {
+                                    TextButton(onClick = { viewModel.refreshRealtime() }) {
+                                        Text(
+                                            text = "Refresh live data",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Train cards

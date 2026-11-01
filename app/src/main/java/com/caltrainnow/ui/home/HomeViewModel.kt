@@ -40,6 +40,7 @@ data class HomeUiState(
     val trainRealtimeUpdates: Map<String, TrainRealtimeUpdate> = emptyMap(),
     val alertsUpdatedAt: String? = null,
     val tripUpdatesUpdatedAt: String? = null,
+    val lastRealtimeRefresh: String? = null,
     val realtimeConfigured: Boolean = false,
     val realtimeLoading: Boolean = false,
     val realtimeHasError: Boolean = false
@@ -68,6 +69,49 @@ class HomeViewModel @Inject constructor(
     private var lastLat: Double? = null
     private var lastLng: Double? = null
     private var realtimeJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Manually refresh live transit data (alerts + trip updates) without re-doing
+     * the schedule lookup. Respects the 15-minute cooldown internally.
+     */
+    fun refreshRealtime() {
+        val current = _uiState.value
+        if (current.realtimeLoading) return
+        val trains = current.nextTrains
+        val direction = current.direction
+        viewModelScope.launch {
+            _uiState.update { it.copy(realtimeLoading = true) }
+            val realtime = try {
+                realtimeTransitRepository.getRealtime(
+                    trains = trains,
+                    direction = direction
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+            if (realtime != null) {
+                val now = java.time.Instant.now()
+                    .atZone(PT_ZONE)
+                    .format(TIME_FORMATTER)
+                _uiState.update {
+                    it.copy(
+                        serviceAlerts = realtime.alerts,
+                        trainRealtimeUpdates = realtime.trainUpdates,
+                        alertsUpdatedAt = realtime.alertsUpdatedAtEpochMillis?.let(::formatRealtimeTime),
+                        tripUpdatesUpdatedAt = realtime.tripUpdatesUpdatedAtEpochMillis?.let(::formatRealtimeTime),
+                        lastRealtimeRefresh = now,
+                        realtimeConfigured = realtime.isConfigured,
+                        realtimeLoading = false,
+                        realtimeHasError = realtime.hasError
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(realtimeLoading = false, realtimeHasError = true) }
+            }
+        }
+    }
 
     init {
         // Observe user prefs and update DirectionResolver when they change
@@ -259,12 +303,16 @@ class HomeViewModel @Inject constructor(
                     null
                 }
                 if (realtime != null) {
+                    val now = java.time.Instant.now()
+                        .atZone(PT_ZONE)
+                        .format(TIME_FORMATTER)
                     _uiState.update {
                         it.copy(
                             serviceAlerts = realtime.alerts,
                             trainRealtimeUpdates = realtime.trainUpdates,
                             alertsUpdatedAt = realtime.alertsUpdatedAtEpochMillis?.let(::formatRealtimeTime),
                             tripUpdatesUpdatedAt = realtime.tripUpdatesUpdatedAtEpochMillis?.let(::formatRealtimeTime),
+                            lastRealtimeRefresh = now,
                             realtimeConfigured = realtime.isConfigured,
                             realtimeLoading = false,
                             realtimeHasError = realtime.hasError
