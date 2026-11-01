@@ -4,17 +4,29 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import com.caltrainnow.core.model.WeatherInfo
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
 import com.caltrainnow.ui.home.components.*
 import com.caltrainnow.util.NavigationUtils
 
@@ -26,6 +38,17 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Refresh automatically every 15 minutes while Home is visible/resumed.
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(15 * 60 * 1000L)
+                viewModel.refreshRealtime(forceRefresh = false)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -189,12 +212,18 @@ fun HomeScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     } else {
-                                        val lastTime = uiState.lastRealtimeRefresh
-                                            ?: listOfNotNull(uiState.alertsUpdatedAt, uiState.tripUpdatesUpdatedAt).maxOrNull()
-                                        if (lastTime != null) {
-                                            val prefix = if (uiState.realtimeHasError) "Cached · " else "Live updates · "
+                                        val feedTimes = buildList {
+                                            uiState.alertsUpdatedAt?.let { add("alerts $it") }
+                                            uiState.tripUpdatesUpdatedAt?.let { add("trains $it") }
+                                        }.joinToString(" · ")
+                                        if (feedTimes.isNotEmpty()) {
+                                            val prefix = if (uiState.realtimeHasError) {
+                                                "Cached live data · "
+                                            } else {
+                                                "Last successful update · "
+                                            }
                                             Text(
-                                                text = "$prefix updated $lastTime · 511 SF Bay",
+                                                text = "$prefix$feedTimes · 511 SF Bay",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (uiState.realtimeHasError) {
                                                     MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
@@ -204,21 +233,22 @@ fun HomeScreen(
                                             )
                                         } else {
                                             Text(
-                                                text = "No live updates yet · 511 SF Bay",
+                                                text = if (uiState.realtimeHasError) {
+                                                    "Live updates unavailable · tap refresh to retry · 511 SF Bay"
+                                                } else {
+                                                    "No live updates yet · 511 SF Bay"
+                                                },
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
                                 }
-                                if (!uiState.realtimeLoading) {
-                                    TextButton(onClick = { viewModel.refreshRealtime() }) {
-                                        Text(
-                                            text = "Refresh live data",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                                IconButton(
+                                    onClick = { viewModel.refreshRealtime(forceRefresh = true) },
+                                    enabled = !uiState.realtimeLoading && !uiState.isLoading
+                                ) {
+                                    RefreshIcon(isRefreshing = uiState.realtimeLoading)
                                 }
                             }
                         }
@@ -281,6 +311,32 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RefreshIcon(isRefreshing: Boolean) {
+    if (isRefreshing) {
+        val transition = rememberInfiniteTransition(label = "realtime-refresh")
+        val rotation by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 900, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "realtime-refresh-rotation"
+        )
+        Icon(
+            imageVector = Icons.Default.Refresh,
+            contentDescription = "Refreshing live transit data",
+            modifier = Modifier.rotate(rotation)
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Refresh,
+            contentDescription = "Refresh live transit data"
+        )
     }
 }
 

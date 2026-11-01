@@ -33,7 +33,7 @@ This is an **in-app information feature**, not a push-notification feature.
 
 - The scheduled train lookup must render independently of the realtime requests; 511 latency must not delay the four schedule cards.
 - Network, authentication, parsing, and stale-feed errors must not hide scheduled trains or crash the app.
-- Do not make realtime requests more often than once per 15 minutes. Apply this cooldown to failed attempts too, and do not run background polling.
+- Automatic realtime requests are limited to one refresh every 15 minutes, including after failed attempts. An explicit user tap on **Refresh** bypasses that cooldown. Do not run background polling.
 - Do not send the API token to logs, analytics, crash reports, UI text, or checked-in configuration.
 - Do not report a trip-specific delay unless the realtime trip can be matched safely to the displayed schedule trip.
 
@@ -45,7 +45,7 @@ This is an **in-app information feature**, not a push-notification feature.
 - **Trip Updates:** `/transit/tripupdates`, documented as a GTFS-Realtime Protocol Buffer feed.
 - Both feeds require an agency selection or the appropriate agency-specific feed. Resolve and verify Caltrain's 511 agency ID through 511's operator data; do not guess it.
 
-The intended 15-minute minimum interval means at most four requests per hour per feed (up to eight requests per hour for the two-feed refresh), comfortably below the documented limit for this app's use. Do not add periodic background fetching in this scope.
+Automatic refreshes every 15 minutes use at most four requests per hour per feed (up to eight requests per hour across the two feeds), below the documented limit. A manual refresh deliberately bypasses the cooldown and can consume additional quota; disable the button while a refresh is in progress and make the bypass explicit in code. Do not add background fetching while the app is not visible.
 
 References:
 
@@ -81,13 +81,13 @@ For a matched trip:
 
 1. `HomeViewModel` obtains the four scheduled trains and immediately updates the existing UI state.
 2. In parallel, a realtime repository checks the persisted request timestamp/cache.
-3. If at least 15 minutes have elapsed since the last attempt, fetch the Caltrain Service Alerts and Trip Updates feeds concurrently using the configured app token.
+3. On automatic checks, fetch the Caltrain Service Alerts and Trip Updates feeds only if at least 15 minutes have elapsed since the last attempt. A manual refresh button forces both feed requests regardless of the cooldown.
 4. Parse and normalize each response independently. A successful feed refresh updates that feed's cache and timestamp; a failure leaves its prior cached result intact.
 5. Filter service alerts for the currently selected direction and match trip updates to the four displayed departures.
 6. Expose the normalized alerts, per-train update status, and last-successful-update time in `HomeUiState`.
 7. When the user toggles direction, re-filter/re-run matching against the displayed trains; do not fetch again if the 15-minute cooldown has not elapsed.
 
-App open/foreground and pull-to-refresh may trigger a freshness check. Pull-to-refresh refreshes scheduled data as it does today, but must not bypass the realtime cooldown. There is no WorkManager job, background polling, or push notification in this feature.
+While Home is in the foreground, automatically check the feeds every 15 minutes. Pull-to-refresh refreshes the schedule and checks realtime freshness without bypassing the cooldown. The dedicated **Refresh** button forces a realtime fetch. There is no WorkManager job, background polling, or push notification in this feature.
 
 ### Proposed code changes
 
@@ -125,14 +125,15 @@ This protects the token from accidental source-control exposure but **does not m
 - Expired and unrelated alerts are excluded.
 - A reliably matched delay or cancellation appears on the correct train card; unmatched updates never appear on a different train.
 - A train with no matching update is not labeled “on time.”
-- Reopening the app, toggling direction, and pull-to-refresh do not cause a 511 request within 15 minutes of the prior attempt.
+- Automatic refresh, direction toggles, and pull-to-refresh respect the 15-minute cooldown; tapping the dedicated Refresh button forces a fetch.
+- The displayed timestamps reflect each feed's last successful fetch, not the time a cached result was read or a failed request completed.
 - Failed requests preserve prior cached data and do not trigger a retry loop.
 - No API token is present in tracked files, logs, UI, or test fixtures.
 - The Home UI identifies 511 as the source of live transit data.
 
 ## 7. Test Design
 
-Use fixture-based unit tests for Service Alerts parsing, Trip Updates Protocol Buffer decoding, active-period evaluation, direction/station relevance, exact/fallback trip matching, stop-level delay selection, and cache cooldown. Add ViewModel/UI tests for non-blocking scheduled results, stale-cache presentation, no-update versus on-time semantics, cancellation, direction toggle, and network/key failures. Keep live 511 calls out of CI; use sanitized fixtures and an optional manual smoke test with a developer token.
+Use fixture-based unit tests for Service Alerts parsing, Trip Updates Protocol Buffer decoding, active-period evaluation, direction/station relevance, exact/fallback trip matching, stop-level delay selection, automatic cache cooldown, and forced-refresh behavior. Add ViewModel/UI tests for non-blocking scheduled results, stale-cache timestamps, no-update versus on-time semantics, cancellation, direction changes during refresh, and network/key failures. Keep live 511 calls out of CI; use sanitized fixtures and an optional manual smoke test with a developer token.
 
 ## 8. Implementation Gates and Open Questions
 

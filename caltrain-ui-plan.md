@@ -8,7 +8,7 @@
 | Theme | Material You (Material 3) with dynamic color |
 | Home screen | Standard — trains + station + navigate button |
 | Settings | Separate screen (Compose Navigation) |
-| Refresh | Pull-to-refresh only |
+| Refresh | Pull-to-refresh for schedule; 511 auto-refresh every 15 min in foreground plus force-refresh icon |
 | Direction | Auto-detect + manual NB/SB toggle override |
 
 ---
@@ -378,4 +378,5 @@ This behavior is implemented; live data requires the app-level 511 token. Produc
 - Annotate each train card only when a 511 Trip Update can be safely matched to that scheduled train. Show delay/updated station time or a cancellation state.
 - Do not label a train “on time” just because no Trip Update matched it.
 - Keep scheduled departures visible while realtime data loads, is stale, or is unavailable. Show the last successful realtime update time.
-- Fetch on app open/foreground or pull-to-refresh only after the 15-minute cooldown; do not add background polling or push notifications in this scope.
+- Automatically check 511 every 15 minutes while Home is foregrounded. Pull-to-refresh and direction changes respect the cooldown; tapping the rotating refresh icon forces a fetch. Do not add background polling or push notifications in this scope.
+- The refresh icon spins and is disabled while the two feeds are loading. Show per-feed last-successful-fetch timestamps; preserve cached timestamps and data on errors.

@@ -25,7 +25,8 @@ class RealtimeTransitRepository @Inject constructor(
     suspend fun getRealtime(
         trains: List<TrainDeparture>,
         direction: Direction,
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        forceRefresh: Boolean = false
     ): RealtimeTransitResult {
         if (!api.isConfigured) {
             return RealtimeTransitResult(isConfigured = false)
@@ -34,7 +35,7 @@ class RealtimeTransitRepository @Inject constructor(
         var feeds = cache.read()
         var hadError = false
 
-        if (api.isConfigured && isRefreshDue(feeds.lastAttemptAt, nowMillis)) {
+        if (forceRefresh || isRefreshDue(feeds.lastAttemptAt, nowMillis)) {
             cache.recordAttempt(nowMillis)
             val (alertsResult, tripsResult) = coroutineScope {
                 val alerts = async { captureFailure { api.fetchServiceAlerts() } }
